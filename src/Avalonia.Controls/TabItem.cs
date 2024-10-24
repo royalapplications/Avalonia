@@ -40,7 +40,7 @@ namespace Avalonia.Controls
             DataContextProperty.Changed.AddClassHandler<TabItem>((x, e) => x.UpdateHeader(e));
             AutomationProperties.ControlTypeOverrideProperty.OverrideDefaultValue<TabItem>(AutomationControlType.TabItem);
             AutomationProperties.IsOffscreenBehaviorProperty.OverrideDefaultValue<TabItem>(IsOffscreenBehavior.FromClip);
-            AccessKeyHandler.AccessKeyPressedEvent.AddClassHandler<TabItem>((tabItem, args) => tabItem.TabItemActivated(args));
+            AccessKeyHandler.AccessKeyPressedEvent.AddClassHandler<TabItem>(OnAccessKeyPressed);
         }
 
         /// <summary>
@@ -63,6 +63,7 @@ namespace Avalonia.Controls
 
         protected override AutomationPeer OnCreateAutomationPeer() => new ListItemAutomationPeer(this);
 
+        
         [Obsolete("Owner manages its children properties by itself")]
         protected void SubscribeToOwnerProperties(AvaloniaObject owner)
         {
@@ -96,10 +97,20 @@ namespace Avalonia.Controls
             }
         }
 
-        private void TabItemActivated(RoutedEventArgs args)
+        private static void OnAccessKeyPressed(TabItem tabItem, AccessKeyPressedEventArgs e)
         {
+            if (!e.Handled)
+            {
+                e.Target = tabItem;
+                e.Handled = true;
+            }
+        }
+        
+        protected override void OnAccessKey(RoutedEventArgs e)
+        {
+            Focus();
             SetCurrentValue(IsSelectedProperty, true);
-            args.Handled = true;
+            e.Handled = true;
         }
     }
 }

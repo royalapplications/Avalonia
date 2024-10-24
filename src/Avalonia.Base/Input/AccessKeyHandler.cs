@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 
 namespace Avalonia.Input
 {
@@ -10,7 +10,7 @@ namespace Avalonia.Input
     /// The delegate type for handling a FindScope event
     /// </summary>
     public delegate void AccessKeyPressedEventHandler(object sender, AccessKeyPressedEventArgs e);
-    
+
     /// <summary>
     /// The inputs to an AccessKeyPressedEventHandler
     /// </summary>
@@ -18,10 +18,10 @@ namespace Avalonia.Input
     {
         private object? _scope;
         private IInputElement? _target;
-        private string? _key;
-    
+        private readonly string? _key;
+
         #region Constructors
-    
+
         /// <summary>
         /// The constructor for AccessKeyPressed event args
         /// </summary>
@@ -30,20 +30,21 @@ namespace Avalonia.Input
             RoutedEvent = AccessKeyHandler.AccessKeyPressedEvent;
             _key = null;
         }
-    
+
         /// <summary>
         /// Constructor for AccessKeyPressed event args
         /// </summary>
         /// <param name="key"></param>
         public AccessKeyPressedEventArgs(string key) : this()
         {
+            RoutedEvent = AccessKeyHandler.AccessKeyPressedEvent;
             _key = key;
         }
-    
+
         #endregion
-    
+
         #region Public Properties
-    
+
         /// <summary>
         /// The scope for the element that raised this event.
         /// </summary>
@@ -52,7 +53,7 @@ namespace Avalonia.Input
             get { return _scope; }
             set { _scope = value; }
         }
-    
+
         /// <summary>
         /// Target element for the element that raised this event.
         /// </summary>
@@ -62,7 +63,7 @@ namespace Avalonia.Input
             get { return _target; }
             set { _target = value; }
         }
-    
+
         /// <summary>
         /// Key that was pressed
         /// </summary>
@@ -71,11 +72,11 @@ namespace Avalonia.Input
         {
             get { return _key; }
         }
-    
+
         #endregion
-    
+
         #region Protected Methods
-    
+
         // /// <summary>
         // /// </summary>
         // /// <param name="genericHandler">The handler to invoke.</param>
@@ -86,10 +87,10 @@ namespace Avalonia.Input
         //
         //     handler(genericTarget, this);
         // }
-    
+
         #endregion
     }
-    
+
     /// <summary>
     /// Information pertaining to when the access key associated with an element is pressed
     /// </summary>
@@ -100,10 +101,12 @@ namespace Avalonia.Input
         /// </summary>
         internal AccessKeyEventArgs(string key, bool isMultiple)
         {
+            RoutedEvent = AccessKeyHandler.AccessKeyEvent;
+
             _key = key;
             _isMultiple = isMultiple;
         }
-    
+
         /// <summary>
         /// The key that was pressed which invoked this access key
         /// </summary>
@@ -112,7 +115,7 @@ namespace Avalonia.Input
         {
             get { return _key; }
         }
-    
+
         /// <summary>
         /// Were there other elements which are also invoked by this key
         /// </summary>
@@ -121,12 +124,12 @@ namespace Avalonia.Input
         {
             get { return _isMultiple; }
         }
-    
+
         private string _key;
         private bool _isMultiple;
     }
 
-    internal record AccessKeyMapping(string Key, WeakReference<IInputElement> Target)
+    internal record AccessKeyRegistration(string Key, WeakReference<IInputElement> Target)
     {
         public IInputElement? GetInputElement() =>
             Target.TryGetTarget(out var target) ? target : null;
@@ -143,12 +146,21 @@ namespace Avalonia.Input
             MoreMatches,
             LastMatch
         }
-        
+
         /// <summary>
         /// Defines the AccessKeyPressed attached event.
         /// </summary>
-        public static readonly RoutedEvent<RoutedEventArgs> AccessKeyPressedEvent =
-            RoutedEvent.Register<RoutedEventArgs>(
+        public static readonly RoutedEvent<AccessKeyEventArgs> AccessKeyEvent =
+            RoutedEvent.Register<AccessKeyEventArgs>(
+                "AccessKey",
+                RoutingStrategies.Bubble,
+                typeof(AccessKeyHandler));
+
+        /// <summary>
+        /// Defines the AccessKeyPressed attached event.
+        /// </summary>
+        public static readonly RoutedEvent<AccessKeyPressedEventArgs> AccessKeyPressedEvent =
+            RoutedEvent.Register<AccessKeyPressedEventArgs>(
                 "AccessKeyPressed",
                 RoutingStrategies.Bubble,
                 typeof(AccessKeyHandler));
@@ -156,7 +168,7 @@ namespace Avalonia.Input
         /// <summary>
         /// The registered access keys.
         /// </summary>
-        private readonly List<AccessKeyMapping> _registered = new();
+        private readonly List<AccessKeyRegistration> _registered = new();
 
         /// <summary>
         /// The window to which the handler belongs.
@@ -276,16 +288,16 @@ namespace Avalonia.Input
 
             lock (_registered)
             {
-                var existing = _registered.Where(m =>
+                var registrationsToRemove = _registered.Where(m =>
                         m.Key == key && m.GetInputElement() == null)
                     .ToList();
 
-                foreach (var mapping in existing)
+                foreach (var registration in registrationsToRemove)
                 {
-                    _registered.Remove(mapping);
+                    _registered.Remove(registration);
                 }
 
-                _registered.Add(new AccessKeyMapping(key, new WeakReference<IInputElement>(element)));
+                _registered.Add(new AccessKeyRegistration(key, new WeakReference<IInputElement>(element)));
             }
         }
 
@@ -298,11 +310,15 @@ namespace Avalonia.Input
             lock (_registered)
             {
                 // Get all elements bound to this key and remove this element
-                var existing = _registered
-                    .Where(m => m.GetInputElement() == null || m.GetInputElement() == element)
+                var registrationsToRemove = _registered
+                    .Where(m =>
+                    {
+                        var inputElement = m.GetInputElement();
+                        return inputElement == null || inputElement == element;
+                    })
                     .ToList();
 
-                foreach (var mapping in existing)
+                foreach (var mapping in registrationsToRemove)
                 {
                     _registered.Remove(mapping);
                 }
@@ -364,43 +380,8 @@ namespace Avalonia.Input
             }
 
             var key = NormalizeKey(e.Key.ToString());
-            e.Handled = ProcessKeyForSender(e.Source, key, existsElsewhere: false) != ProcessKeyResult.NoMatch;
-
-            // If any other key is pressed with the Alt key held down, or the main menu is open,
-            // find all controls who have registered that access key.
-            // var text = e.Key.ToString();
-            // var matches = _registered
-            //     .Where(x => string.Equals(x.AccessKey, text, StringComparison.OrdinalIgnoreCase)
-            //                 && x.Element is
-            //                 {
-            //                     IsEffectivelyVisible: true,
-            //                     IsEffectivelyEnabled: true
-            //                 })
-            //     .Select(x => x.Element);
-            //
-            //
-            // // If the menu is open, only match controls in the menu's visual tree.
-            // if (menuIsOpen)
-            // {
-            //     matches = matches.Where(x => ((Visual)MainMenu!).IsLogicalAncestorOf((Visual)x));
-            // }
-            //
-            // var count = matches.Count();
-            // if (count == 1) // If there is a match, raise the AccessKeyPressed event on it.
-            // {
-            //     // reset the currently selected focus element
-            //     _focusElement = null;
-            //     var element = matches.FirstOrDefault();
-            //     element?.RaiseEvent(new RoutedEventArgs(AccessKeyPressedEvent));
-            // }
-            // else if (count > 1) // If there are multiple elements, cycle focus through them.
-            // {
-            //     _focusElement = _focusElement == null ?
-            //         (matches.FirstOrDefault() as Visual)?.Parent as IInputElement :
-            //         GetNextElementToFocus(matches, _focusElement);
-            //
-            //     _focusElement?.Focus(NavigationMethod.Tab, KeyModifiers.Alt);
-            // }
+            var targets = SortByLogicalParent(GetTargetsForSender(e.Source as IInputElement, key));
+            e.Handled = ProcessKey(targets, key, false) != ProcessKeyResult.NoMatch;
         }
 
         /// <summary>
@@ -471,7 +452,6 @@ namespace Avalonia.Input
             return ProcessKey(targets, key, existsElsewhere);
         }
 
-
         private ProcessKeyResult ProcessKey(List<IInputElement> targets, string key, bool existsElsewhere)
         {
             if (!targets.Any())
@@ -479,7 +459,7 @@ namespace Avalonia.Input
 
             var isSingleTarget = true;
             var lastWasFocused = false;
-            
+
             IInputElement? effectiveTarget = null;
 
             int chosenIndex = 0;
@@ -507,7 +487,7 @@ namespace Avalonia.Input
                 }
 
                 lastWasFocused = target.IsFocused;
-                // lastWasFocused = FocusManager.GetFocusManager(_owner)?.GetFocusedElement() == target;
+                //lastWasFocused = FocusManager.GetFocusManager(_owner)?.GetFocusedElement() == target;
             }
 
             if (effectiveTarget != null)
@@ -515,9 +495,7 @@ namespace Avalonia.Input
                 var args = new AccessKeyEventArgs(key, isMultiple: !isSingleTarget || existsElsewhere);
                 effectiveTarget.RaiseEvent(args);
 
-                return chosenIndex == targets.Count - 1 
-                    ? ProcessKeyResult.LastMatch 
-                    : ProcessKeyResult.MoreMatches;
+                return chosenIndex == targets.Count - 1 ? ProcessKeyResult.LastMatch : ProcessKeyResult.MoreMatches;
             }
 
             return ProcessKeyResult.NoMatch;
@@ -589,13 +567,13 @@ namespace Avalonia.Input
         {
             lock (_registered)
             {
-                var deadElements = _registered
+                var registrationsToRemove = _registered
                     .Where(m => m.GetInputElement() == null)
                     .ToList();
 
-                foreach (var mapping in deadElements)
+                foreach (var registration in registrationsToRemove)
                 {
-                    _registered.Remove(mapping);
+                    _registered.Remove(registration);
                 }
 
                 return _registered
@@ -625,6 +603,30 @@ namespace Avalonia.Input
             return info;
         }
 
+        private static List<IInputElement> SortByLogicalParent(List<IInputElement> targets)
+        {
+            var sorted = new List<IInputElement>();
+            var elements = targets.OfType<InputElement>().ToList();
+            for (var i = 0; i < elements.Count; i++)
+            {
+                var parent = elements[i];
+                if (sorted.Contains(parent))
+                    continue;
+                
+                sorted.Add(parent);
+                for (var j = i + 1; j < elements.Count; j++)
+                {
+                    var current = elements[j];
+                    if (parent.IsLogicalAncestorOf(current))
+                    {
+                        sorted.Add(current);
+                    }
+                }
+            }
+
+            return sorted;
+        }
+
 
         private struct AccessKeyInformation
         {
@@ -643,3 +645,8 @@ namespace Avalonia.Input
         }
     }
 }
+
+/**
+ * ProcessKey => raises AccessKeyEvent: sets the Focus
+ * GetElementInfo => raises AccessKeyPressedEvent: gets the target
+ */

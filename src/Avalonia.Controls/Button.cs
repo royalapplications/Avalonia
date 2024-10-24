@@ -104,7 +104,7 @@ namespace Avalonia.Controls
         static Button()
         {
             FocusableProperty.OverrideDefaultValue(typeof(Button), true);
-            AccessKeyHandler.AccessKeyPressedEvent.AddClassHandler<Button>((lbl, args) => lbl.OnAccessKey(args));
+            AccessKeyHandler.AccessKeyPressedEvent.AddClassHandler<Button>(OnAccessKeyPressed);
         }
 
         /// <summary>
@@ -199,7 +199,7 @@ namespace Avalonia.Controls
 
         /// <inheritdoc/>
         protected override bool IsEnabledCore => base.IsEnabledCore && _commandCanExecute;
-
+        
         /// <inheritdoc/>
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
@@ -278,7 +278,17 @@ namespace Avalonia.Controls
             }
         }
 
-        protected virtual void OnAccessKey(RoutedEventArgs e) => OnClick();
+        protected override void OnAccessKey(RoutedEventArgs e)
+        {
+            if (e is AccessKeyEventArgs args && args.IsMultiple)
+            {
+                base.OnAccessKey(e);
+            }
+            else
+            {
+                OnClick();    
+            }
+        }
 
         /// <inheritdoc/>
         protected override void OnKeyDown(KeyEventArgs e)
@@ -563,6 +573,14 @@ namespace Avalonia.Controls
 
         internal void PerformClick() => OnClick();
 
+        private static void OnAccessKeyPressed(Button sender, AccessKeyPressedEventArgs e)
+        {
+            if (!e.Handled && e.Target is null)
+            {
+                e.Target = sender;
+            }
+        }
+        
         /// <summary>
         /// Called when the <see cref="ICommand.CanExecuteChanged"/> event fires.
         /// </summary>

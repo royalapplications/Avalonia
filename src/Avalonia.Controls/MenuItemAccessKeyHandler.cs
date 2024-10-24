@@ -11,8 +11,6 @@ namespace Avalonia.Controls
     /// </summary>
     internal class MenuItemAccessKeyHandler : IAccessKeyHandler
     {
-        private IInputElement? _focusElement;
-
         /// <summary>
         /// The registered access keys.
         /// </summary>
@@ -50,7 +48,6 @@ namespace Avalonia.Controls
             _owner = owner;
 
             _owner.AddHandler(InputElement.TextInputEvent, OnTextInput);
-            // _owner.AddHandler(InputElement.KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
         }
 
         /// <summary>
@@ -89,36 +86,15 @@ namespace Avalonia.Controls
         /// <param name="e">The event args.</param>
         protected virtual void OnTextInput(object? sender, TextInputEventArgs e)
         {
-            // only handle accelerators, when access keys are visible
-            if (!(_owner?.ShowAccessKeys ?? false))
-                return;
-
-            // select menu items matching the access key which are visible and enabled.
-            var matches = _registered
-                .Where(x => string.Equals(x.AccessKey, e.Text, StringComparison.OrdinalIgnoreCase)
-                            && x.Element is
-                            {
-                                IsEffectivelyVisible: true,
-                                IsEffectivelyEnabled: true
-                            })
-                .Select(x => x.Element);
-
-            var count = matches.Count();
-            if (count == 1) // If there is a match, raise the AccessKeyPressed event on it.
+            if (!string.IsNullOrWhiteSpace(e.Text))
             {
-                // reset the currently selected focus element
-                _focusElement = null;
-                var element = matches.FirstOrDefault();
-                element?.RaiseEvent(new RoutedEventArgs(AccessKeyHandler.AccessKeyPressedEvent));
-                e.Handled = true;
-            }
-            else if (count > 1) // If there are multiple elements, cycle focus through them.
-            {
-                _focusElement = _focusElement == null ?
-                    (matches.FirstOrDefault() as Visual)?.Parent as IInputElement :
-                    AccessKeyHandler.GetNextElementToFocus(matches, _focusElement);
+                var text = e.Text;
+                var focus = _registered
+                    .FirstOrDefault(x => string.Equals(x.AccessKey, text, StringComparison.OrdinalIgnoreCase)
+                        && x.Element.IsEffectivelyVisible).Element;
 
-                _focusElement?.Focus(NavigationMethod.Tab, KeyModifiers.Alt);
+                focus?.RaiseEvent(new RoutedEventArgs(AccessKeyHandler.AccessKeyPressedEvent));
+
                 e.Handled = true;
             }
         }

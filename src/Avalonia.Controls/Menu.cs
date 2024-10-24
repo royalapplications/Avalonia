@@ -40,6 +40,21 @@ namespace Avalonia.Controls
                 KeyboardNavigationMode.Once);
             AutomationProperties.AccessibilityViewProperty.OverrideDefaultValue<Menu>(AccessibilityView.Control);
             AutomationProperties.ControlTypeOverrideProperty.OverrideDefaultValue<Menu>(AutomationControlType.Menu);
+            AccessKeyHandler.AccessKeyPressedEvent.AddClassHandler<Menu>(OnAccessKeyPressed);
+        }
+
+        
+        // protected override void OnAccessKey(RoutedEventArgs e)
+        // {
+        //     // Handled by DefaultMenuInteractionHandler 
+        // }
+        
+        private static void OnAccessKeyPressed(Menu sender, AccessKeyPressedEventArgs e)
+        {
+            if (!e.Handled && e.Source is StyledElement target)
+            {
+                e.Target = DefaultMenuInteractionHandler.GetMenuItemCore(target);
+            }
         }
 
         /// <inheritdoc/>

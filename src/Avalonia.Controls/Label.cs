@@ -28,12 +28,12 @@ namespace Avalonia.Controls
 
         static Label()
         {
-            AccessKeyHandler.AccessKeyPressedEvent.AddClassHandler<Label>((lbl, args) => lbl.LabelActivated(args));
-            // IsTabStopProperty.OverrideDefaultValue<Label>(false)
-            
+            AccessKeyHandler.AccessKeyPressedEvent.AddClassHandler<Label>(OnAccessKeyPressed);
+            IsTabStopProperty.OverrideDefaultValue<Label>(false);
+
             // Set the default value to true, to ensure that the target control can be focused,
             // when the label is focused. 
-            FocusableProperty.OverrideDefaultValue<Label>(true);
+            // FocusableProperty.OverrideDefaultValue<Label>(true);
         }
 
         /// <summary>
@@ -43,15 +43,21 @@ namespace Avalonia.Controls
         {
         }
 
-        /// <summary>
-        /// Method which focuses <see cref="Target"/> input element
-        /// </summary>
-        private void LabelActivated(RoutedEventArgs args)
+
+        private static void OnAccessKeyPressed(Label label, AccessKeyPressedEventArgs e)
         {
-            Target?.Focus();
-            args.Handled = Target != null;
+            // ISSUE: if this is handled in Control then we need to check here as well
+            if (!e.Handled && (e.Target == null || e.Target == label))
+            {
+                e.Target = label.Target;
+            }
         }
 
+        protected override void OnAccessKey(RoutedEventArgs e)
+        {
+            LabelActivated(e);
+        }
+        
         /// <summary>
         /// Handler of <see cref="IInputElement.PointerPressed"/> event
         /// </summary>
@@ -65,14 +71,20 @@ namespace Avalonia.Controls
             base.OnPointerPressed(e);
         }
 
-        /// <summary>
-        /// Focus the target control instead if the label gets the focus. 
-        /// </summary>
-        /// <param name="e">The event args</param>
-        protected override void OnGotFocus(GotFocusEventArgs e)
+        private void LabelActivated(RoutedEventArgs e)
         {
             Target?.Focus();
+            e.Handled = Target != null;
         }
+
+        // /// <summary>
+        // /// Focus the target control instead if the label gets the focus. 
+        // /// </summary>
+        // /// <param name="e">The event args</param>
+        // protected override void OnGotFocus(GotFocusEventArgs e)
+        // {
+        //     Target?.Focus();
+        // }
 
         protected override AutomationPeer OnCreateAutomationPeer()
         {
