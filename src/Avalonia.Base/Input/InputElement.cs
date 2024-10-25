@@ -1,16 +1,14 @@
+#nullable enable
+
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
-using Avalonia.Data;
 using Avalonia.Input.GestureRecognizers;
 using Avalonia.Input.TextInput;
 using Avalonia.Interactivity;
 using Avalonia.Reactive;
 using Avalonia.VisualTree;
-
-#nullable enable
 
 namespace Avalonia.Input
 {
@@ -519,6 +517,12 @@ namespace Avalonia.Input
             }
         }
 
+        /// <summary>
+        /// This method is used to execute the action on an effective IInputElement when a corresponding access key has been invoked.
+        /// By default, the Focus() method is invoked with the NavigationMethod.Tab to indicate a visual focus adorner.
+        /// Overwrite this method if other methods or additional functionality is needed when an item should receive the focus.
+        /// </summary>
+        /// <param name="e">AccessKeyEventArgs are passed on to indicate if there are multiple matches or not.</param>
         protected virtual void OnAccessKey(RoutedEventArgs e)
         {
             Focus(NavigationMethod.Tab);

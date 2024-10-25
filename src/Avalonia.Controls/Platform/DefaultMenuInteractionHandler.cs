@@ -79,18 +79,13 @@ namespace Avalonia.Controls.Platform
 
         protected internal virtual void AccessKeyPressed(object? sender, RoutedEventArgs e)
         {
-            if (e is not AccessKeyEventArgs args)
-                return;
-            
             var item = GetMenuItemCore(e.Source as Control);
-
-            if (item == null)
-            {
+            if (item is null)
                 return;
-            }
 
-            if (args.IsMultiple)
+            if (e is AccessKeyEventArgs { IsMultiple: true })
             {
+                // in case we have multiple matches, only focus item and bail
                 item.Focus(NavigationMethod.Tab);
                 return;
             }

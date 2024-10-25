@@ -278,6 +278,7 @@ namespace Avalonia.Controls
             }
         }
 
+        /// <inheritdoc />
         protected override void OnAccessKey(RoutedEventArgs e)
         {
             if (e is AccessKeyEventArgs args && args.IsMultiple)
@@ -575,10 +576,10 @@ namespace Avalonia.Controls
 
         private static void OnAccessKeyPressed(Button sender, AccessKeyPressedEventArgs e)
         {
-            if (!e.Handled && e.Target is null)
-            {
-                e.Target = sender;
-            }
+            if (e.Handled || e.Target is not null) 
+                return;
+            e.Target = sender;
+            e.Handled = true;
         }
         
         /// <summary>

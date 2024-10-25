@@ -61,6 +61,14 @@ namespace Avalonia.Controls
             set => SetValue(IsSelectedProperty, value);
         }
 
+        /// <inheritdoc />>
+        protected override void OnAccessKey(RoutedEventArgs e)
+        {
+            Focus();
+            SetCurrentValue(IsSelectedProperty, true);
+            e.Handled = true;
+        }
+
         protected override AutomationPeer OnCreateAutomationPeer() => new ListItemAutomationPeer(this);
 
         
@@ -99,17 +107,10 @@ namespace Avalonia.Controls
 
         private static void OnAccessKeyPressed(TabItem tabItem, AccessKeyPressedEventArgs e)
         {
-            if (!e.Handled)
-            {
-                e.Target = tabItem;
-                e.Handled = true;
-            }
-        }
-        
-        protected override void OnAccessKey(RoutedEventArgs e)
-        {
-            Focus();
-            SetCurrentValue(IsSelectedProperty, true);
+            if (e is not { Handled: false, Target: not null }) 
+                return;
+            
+            e.Target = tabItem;
             e.Handled = true;
         }
     }

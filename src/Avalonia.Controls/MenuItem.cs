@@ -525,6 +525,15 @@ namespace Avalonia.Controls
             }
         }
 
+        private static void OnAccessKeyPressed(MenuItem sender, AccessKeyPressedEventArgs e)
+        {
+            if (e is not { Handled: false, Target: null }) 
+                return;
+            
+            e.Target = sender;
+            e.Handled = true;
+        }
+
         /// <inheritdoc/>
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
         {
@@ -539,7 +548,7 @@ namespace Avalonia.Controls
 
             if (_popup != null)
             {
-                _popup.DependencyResolver = DependencyResolver.Instance;
+                _popup.DependencyResolver = AvaloniaLocator.Current;
                 _popup.Opened += PopupOpened;
                 _popup.Closed += PopupClosed;
             }
@@ -567,18 +576,11 @@ namespace Avalonia.Controls
             }
         }
 
+        /// <inheritdoc />
         protected override void OnAccessKey(RoutedEventArgs e)
         {
             IsSelected = true;
             base.OnAccessKey(e);
-        }
-
-        private static void OnAccessKeyPressed(MenuItem sender, AccessKeyPressedEventArgs e)
-        {
-            if (e is not { Handled: false, Target: null }) 
-                return;
-            
-            e.Target = sender;
             e.Handled = true;
         }
 
@@ -874,34 +876,6 @@ namespace Avalonia.Controls
             if (IsEffectivelyEnabled)
             {
                 RaiseEvent(new RoutedEventArgs(ClickEvent));
-            }
-        }
-
-        /// <summary>
-        /// A dependency resolver which returns a <see cref="MenuItemAccessKeyHandler"/>.
-        /// </summary>
-        private class DependencyResolver : IAvaloniaDependencyResolver
-        {
-            /// <summary>
-            /// Gets the default instance of <see cref="DependencyResolver"/>.
-            /// </summary>
-            public static readonly DependencyResolver Instance = new DependencyResolver();
-
-            /// <summary>
-            /// Gets a service of the specified type.
-            /// </summary>
-            /// <param name="serviceType">The service type.</param>
-            /// <returns>A service of the requested type.</returns>
-            public object? GetService(Type serviceType)
-            {
-                // if (serviceType == typeof(IAccessKeyHandler))
-                // {
-                //     return new MenuItemAccessKeyHandler();
-                // }
-                // else
-                {
-                    return AvaloniaLocator.Current.GetService(serviceType);
-                }
             }
         }
     }

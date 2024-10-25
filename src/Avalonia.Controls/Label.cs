@@ -44,20 +44,12 @@ namespace Avalonia.Controls
         }
 
 
-        private static void OnAccessKeyPressed(Label label, AccessKeyPressedEventArgs e)
-        {
-            // ISSUE: if this is handled in Control then we need to check here as well
-            if (!e.Handled && (e.Target == null || e.Target == label))
-            {
-                e.Target = label.Target;
-            }
-        }
-
+        /// <inheritdoc />
         protected override void OnAccessKey(RoutedEventArgs e)
         {
             LabelActivated(e);
         }
-        
+
         /// <summary>
         /// Handler of <see cref="IInputElement.PointerPressed"/> event
         /// </summary>
@@ -77,14 +69,14 @@ namespace Avalonia.Controls
             e.Handled = Target != null;
         }
 
-        // /// <summary>
-        // /// Focus the target control instead if the label gets the focus. 
-        // /// </summary>
-        // /// <param name="e">The event args</param>
-        // protected override void OnGotFocus(GotFocusEventArgs e)
-        // {
-        //     Target?.Focus();
-        // }
+        private static void OnAccessKeyPressed(Label label, AccessKeyPressedEventArgs e)
+        {
+            if (e is not { Handled: false, Target: null }) 
+                return;
+            
+            e.Target = label.Target;
+            e.Handled = true;
+        }
 
         protected override AutomationPeer OnCreateAutomationPeer()
         {
