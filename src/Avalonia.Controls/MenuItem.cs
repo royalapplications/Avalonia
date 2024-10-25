@@ -566,13 +566,20 @@ namespace Avalonia.Controls
                 }
             }
         }
-        
+
+        protected override void OnAccessKey(RoutedEventArgs e)
+        {
+            IsSelected = true;
+            base.OnAccessKey(e);
+        }
+
         private static void OnAccessKeyPressed(MenuItem sender, AccessKeyPressedEventArgs e)
         {
-            if (!e.Handled && e.Target == null)
-            {
-                e.Target = sender;
-            }
+            if (e is not { Handled: false, Target: null }) 
+                return;
+            
+            e.Target = sender;
+            e.Handled = true;
         }
 
         /// <summary>
@@ -887,11 +894,11 @@ namespace Avalonia.Controls
             /// <returns>A service of the requested type.</returns>
             public object? GetService(Type serviceType)
             {
-                if (serviceType == typeof(IAccessKeyHandler))
-                {
-                    return new MenuItemAccessKeyHandler();
-                }
-                else
+                // if (serviceType == typeof(IAccessKeyHandler))
+                // {
+                //     return new MenuItemAccessKeyHandler();
+                // }
+                // else
                 {
                     return AvaloniaLocator.Current.GetService(serviceType);
                 }

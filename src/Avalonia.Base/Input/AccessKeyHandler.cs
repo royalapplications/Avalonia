@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace Avalonia.Input
 {
@@ -193,7 +195,7 @@ namespace Avalonia.Input
         /// <summary>
         /// Element to restore following AltKey taking focus.
         /// </summary>
-        private IInputElement? _restoreFocusElement;
+        private WeakReference<IInputElement>? _restoreFocusElement;
 
         /// <summary>
         /// The window's main menu.
@@ -332,6 +334,12 @@ namespace Avalonia.Input
         /// <param name="e">The event args.</param>
         protected virtual void OnPreviewKeyDown(object? sender, KeyEventArgs e)
         {
+            // if the owner (IInputRoot) does not have the keyboard focus, ignore all keyboard events
+            // KeyboardDevice.IsKeyboardFocusWithin in case of a PopupRoot seems to only work once, so we created our own
+            var isFocusWithinOwner = IsFocusWithinOwner(_owner!);
+            if (!isFocusWithinOwner)
+                return;
+
             if (e.Key is Key.LeftAlt or Key.RightAlt)
             {
                 _altIsDown = true;
@@ -342,11 +350,13 @@ namespace Avalonia.Input
 
                     // TODO: Use FocusScopes to store the current element and restore it when context menu is closed.
                     // Save currently focused input element.
-                    _restoreFocusElement = focusManager?.GetFocusedElement();
+                    var focusedElement = focusManager?.GetFocusedElement();
+                    if (focusedElement is not null)
+                        _restoreFocusElement = new WeakReference<IInputElement>(focusedElement);
 
                     // When Alt is pressed without a main menu, or with a closed main menu, show
                     // access key markers in the window (i.e. "_File").
-                    _owner!.ShowAccessKeys = _showingAccessKeys = true;
+                    _owner!.ShowAccessKeys = _showingAccessKeys = isFocusWithinOwner;
                 }
                 else
                 {
@@ -354,7 +364,10 @@ namespace Avalonia.Input
                     CloseMenu();
                     _ignoreAltUp = true;
 
-                    _restoreFocusElement?.Focus();
+                    if (_restoreFocusElement?.TryGetTarget(out var restoreElement) ?? false)
+                    {
+                        Dispatcher.UIThread.Post(() => restoreElement.Focus());
+                    }
                     _restoreFocusElement = null;
                 }
             }
@@ -371,6 +384,12 @@ namespace Avalonia.Input
         /// <param name="e">The event args.</param>
         protected virtual void OnKeyDown(object? sender, KeyEventArgs e)
         {
+            // if the owner (IInputRoot) does not have the keyboard focus, ignore all keyboard events
+            // KeyboardDevice.IsKeyboardFocusWithin in case of a PopupRoot seems to only work once, so we created our own
+            var isFocusWithinOwner = IsFocusWithinOwner(_owner!);
+            if (!isFocusWithinOwner)
+                return;
+
             if (!e.KeyModifiers.HasAllFlags(KeyModifiers.Alt) || e.KeyModifiers.HasAllFlags(KeyModifiers.Control))
             {
                 if (MainMenu?.IsOpen != true)
@@ -380,7 +399,7 @@ namespace Avalonia.Input
             }
 
             var key = NormalizeKey(e.Key.ToString());
-            var targets = SortByLogicalParent(GetTargetsForSender(e.Source as IInputElement, key));
+            var targets = SortByHierarchy(GetTargetsForSender(e.Source as IInputElement, key));
             e.Handled = ProcessKey(targets, key, false) != ProcessKeyResult.NoMatch;
         }
 
@@ -603,7 +622,7 @@ namespace Avalonia.Input
             return info;
         }
 
-        private static List<IInputElement> SortByLogicalParent(List<IInputElement> targets)
+        private static List<IInputElement> SortByHierarchy(List<IInputElement> targets)
         {
             var sorted = new List<IInputElement>();
             var elements = targets.OfType<InputElement>().ToList();
@@ -627,6 +646,15 @@ namespace Avalonia.Input
             return sorted;
         }
 
+        private bool IsFocusWithinOwner(IInputRoot owner)
+        {
+            var focusedElement = KeyboardDevice.Instance?.FocusedElement;
+            if (focusedElement is not InputElement inputElement)
+                return false;
+
+            var isAncestorOf = owner is Visual root && root.IsVisualAncestorOf(inputElement);
+            return isAncestorOf;
+        }
 
         private struct AccessKeyInformation
         {

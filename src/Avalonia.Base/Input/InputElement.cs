@@ -521,7 +521,7 @@ namespace Avalonia.Input
 
         protected virtual void OnAccessKey(RoutedEventArgs e)
         {
-            this.Focus(NavigationMethod.Tab);
+            Focus(NavigationMethod.Tab);
         }
 
         /// <inheritdoc/>

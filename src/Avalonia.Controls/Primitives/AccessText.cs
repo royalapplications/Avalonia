@@ -96,7 +96,6 @@ namespace Avalonia.Controls.Primitives
             if (_accessKeys != null && AccessKey != 0)
             {
                 _accessKeys.Register(AccessKey, this);
-                Console.WriteLine("AccessKey: " + AccessKey, this.Text);
             }
         }
 
