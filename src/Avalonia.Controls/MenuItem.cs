@@ -575,15 +575,7 @@ namespace Avalonia.Controls
                 }
             }
         }
-
-        /// <inheritdoc />
-        protected override void OnAccessKey(RoutedEventArgs e)
-        {
-            IsSelected = true;
-            base.OnAccessKey(e);
-            e.Handled = true;
-        }
-
+        
         /// <summary>
         /// Closes all submenus of the menu item.
         /// </summary>
@@ -676,6 +668,15 @@ namespace Avalonia.Controls
                 _commandCanExecute = canExecute;
                 UpdateIsEffectivelyEnabled();
             }
+        }
+
+        private static void OnAccessKeyPressed(MenuItem sender, AccessKeyPressedEventArgs e)
+        {
+            if (e is not { Handled: false, Target: null }) 
+                return;
+            
+            e.Target = sender;
+            e.Handled = true;
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)

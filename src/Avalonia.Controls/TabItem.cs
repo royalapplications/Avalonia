@@ -61,7 +61,7 @@ namespace Avalonia.Controls
             set => SetValue(IsSelectedProperty, value);
         }
 
-        /// <inheritdoc />>
+        /// <inheritdoc />
         protected override void OnAccessKey(RoutedEventArgs e)
         {
             Focus();
@@ -75,6 +75,15 @@ namespace Avalonia.Controls
         [Obsolete("Owner manages its children properties by itself")]
         protected void SubscribeToOwnerProperties(AvaloniaObject owner)
         {
+        }
+
+        private static void OnAccessKeyPressed(TabItem tabItem, AccessKeyPressedEventArgs e)
+        {
+            if (e.Handled || (e.Target != null && tabItem.IsSelected)) 
+                return;
+            
+            e.Target = tabItem;
+            e.Handled = true;
         }
 
         private void UpdateHeader(AvaloniaPropertyChangedEventArgs obj)
@@ -103,15 +112,6 @@ namespace Avalonia.Controls
                     SetCurrentValue(HeaderProperty, obj.NewValue);
                 }
             }
-        }
-
-        private static void OnAccessKeyPressed(TabItem tabItem, AccessKeyPressedEventArgs e)
-        {
-            if (e is not { Handled: false, Target: not null }) 
-                return;
-            
-            e.Target = tabItem;
-            e.Handled = true;
         }
     }
 }

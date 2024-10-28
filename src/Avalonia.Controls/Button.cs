@@ -281,7 +281,7 @@ namespace Avalonia.Controls
         /// <inheritdoc />
         protected override void OnAccessKey(RoutedEventArgs e)
         {
-            if (e is AccessKeyEventArgs args && args.IsMultiple)
+            if (e is AccessKeyEventArgs { IsMultiple: true })
             {
                 base.OnAccessKey(e);
             }

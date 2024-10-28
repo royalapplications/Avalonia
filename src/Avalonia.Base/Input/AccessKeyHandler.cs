@@ -233,14 +233,10 @@ namespace Avalonia.Input
             if (!isFocusWithinOwner)
                 return;
 
-            if (!e.KeyModifiers.HasAllFlags(KeyModifiers.Alt) || e.KeyModifiers.HasAllFlags(KeyModifiers.Control))
-            {
-                if (MainMenu?.IsOpen != true)
-                {
-                    return;
-                }
-            }
-
+            if ((!e.KeyModifiers.HasAllFlags(KeyModifiers.Alt) || e.KeyModifiers.HasAllFlags(KeyModifiers.Control)) &&
+                MainMenu?.IsOpen != true) 
+                return;
+            
             var key = NormalizeKey(e.Key.ToString());
             var targets = SortByHierarchy(GetTargetsForSender(e.Source as IInputElement, key));
             e.Handled = ProcessKey(targets, key) != ProcessKeyResult.NoMatch;
@@ -299,15 +295,9 @@ namespace Avalonia.Input
             _owner!.ShowAccessKeys = false;
         }
 
-        /// <summary>
-        /// Returns StringInfo.GetNextTextElement(key).ToUpperInvariant() throwing exceptions for null
-        /// and multi-char strings.
-        /// </summary>
-        /// <param name="key"></param>
-        /// <returns></returns>
         private static string NormalizeKey(string key) => key.ToUpperInvariant();
 
-        private ProcessKeyResult ProcessKey(List<IInputElement> targets, string key)
+        private static ProcessKeyResult ProcessKey(List<IInputElement> targets, string key)
         {
             if (!targets.Any())
                 return ProcessKeyResult.NoMatch;
@@ -366,7 +356,6 @@ namespace Avalonia.Input
         {
             // Find the scope for the sender -- will be matched against the possible targets' scopes
             var senderInfo = GetInfoForElement(sender, key);
-
             return GetTargetsForScope(key, sender, senderInfo);
         }
 
@@ -432,12 +421,12 @@ namespace Avalonia.Input
         }
 
         /// <summary>
-        /// Returns scope for the given element.
+        /// Returns targeting information for the given element.
         /// </summary>
         /// <param name="element"></param>
         /// <param name="key"></param>
         /// <returns>AccessKeyInformation with target for the access key.</returns>
-        private AccessKeyInformation GetInfoForElement(IInputElement? element, string key)
+        private static AccessKeyInformation GetInfoForElement(IInputElement? element, string key)
         {
             var info = new AccessKeyInformation();
             if (element == null)
@@ -451,11 +440,24 @@ namespace Avalonia.Input
         }
 
         /// <summary>
-        /// Sorts the list of possible access keys in hierarchical order to ensure that elements containing in a tab,
+        /// Checks if the focused element is a descendent of the owner.
+        /// </summary>
+        /// <param name="owner">The owner to check.</param>
+        /// <returns>If focused element is decendant of owner <c>true</c>, otherwise <c>false</c>. </returns>
+        private static bool IsFocusWithinOwner(IInputRoot owner)
+        {
+            var focusedElement = KeyboardDevice.Instance?.FocusedElement;
+            if (focusedElement is not InputElement inputElement)
+                return false;
+
+            var isAncestorOf = owner is Visual root && root.IsVisualAncestorOf(inputElement);
+            return isAncestorOf;
+        }
+
+        /// <summary>
+        /// Sorts the list of targets in hierarchical order to ensure that elements within a tab,
         /// for example, are processed before the next tab item in case of identical access keys
         /// </summary>
-        /// <param name="targets"></param>
-        /// <returns></returns>
         private static List<IInputElement> SortByHierarchy(List<IInputElement> targets)
         {
             var sorted = new List<IInputElement>();
@@ -479,19 +481,9 @@ namespace Avalonia.Input
 
             return sorted;
         }
-
-        private bool IsFocusWithinOwner(IInputRoot owner)
-        {
-            var focusedElement = KeyboardDevice.Instance?.FocusedElement;
-            if (focusedElement is not InputElement inputElement)
-                return false;
-
-            var isAncestorOf = owner is Visual root && root.IsVisualAncestorOf(inputElement);
-            return isAncestorOf;
-        }
     }
 
-    internal record AccessKeyRegistration(string Key, WeakReference<IInputElement> Target)
+    internal sealed record AccessKeyRegistration(string Key, WeakReference<IInputElement> Target)
     {
         public IInputElement? GetInputElement() =>
             Target.TryGetTarget(out var target) ? target : null;
