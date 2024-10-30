@@ -53,7 +53,10 @@ namespace Avalonia.Input
             get
             {
                 {
-                    return _registrations.AsReadOnly();
+                    lock (_registrations)
+                    {
+                        return _registrations.AsReadOnly();
+                    }
                 }
             }
         }
@@ -145,18 +148,21 @@ namespace Avalonia.Input
         /// <param name="element">The input element.</param>
         public void Register(char accessKey, IInputElement element)
         {
-            var key = NormalizeKey(accessKey.ToString());
+            lock (_registrations)
             {
-                var registrationsToRemove = _registrations.Where(m =>
-                        m.Key == key && m.GetInputElement() == null)
-                    .ToList();
-
-                foreach (var registration in registrationsToRemove)
+                var key = NormalizeKey(accessKey.ToString());
                 {
-                    _registrations.Remove(registration);
-                }
+                    var registrationsToRemove = _registrations.Where(m =>
+                            m.Key == key && m.GetInputElement() == null)
+                        .ToList();
 
-                _registrations.Add(new AccessKeyRegistration(key, new WeakReference<IInputElement>(element)));
+                    foreach (var registration in registrationsToRemove)
+                    {
+                        _registrations.Remove(registration);
+                    }
+
+                    _registrations.Add(new AccessKeyRegistration(key, new WeakReference<IInputElement>(element)));
+                }
             }
         }
 
@@ -166,6 +172,7 @@ namespace Avalonia.Input
         /// <param name="element">The input element.</param>
         public void Unregister(IInputElement element)
         {
+            lock (_registrations)
             {
                 // Get all elements bound to this key and remove this element
                 var registrationsToRemove = _registrations
@@ -251,16 +258,9 @@ namespace Avalonia.Input
                 MainMenu?.IsOpen != true)
                 return;
 
-            e.Handled = ProcessKey(e.Source as IInputElement, e.Key.ToString());
+            e.Handled = ProcessKey(e.Key.ToString(), e.Source as IInputElement);
         }
 
-        internal bool ProcessKey(IInputElement? element, string key)
-        {
-            key = NormalizeKey(key);
-            var targets = SortByHierarchy(GetTargetsForSender(element, key));
-            var result = ProcessKey(targets, key);
-            return result != ProcessKeyResult.NoMatch;
-        }
 
         /// <summary>
         /// Handles the Alt/F10 keys being released in the window.
@@ -315,9 +315,23 @@ namespace Avalonia.Input
             _owner!.ShowAccessKeys = false;
         }
 
+        /// <summary>
+        /// Processes the given key for the element's targets 
+        /// </summary>
+        /// <param name="key">The access key to process.</param>
+        /// <param name="element">The element to get the targets which are in scope.</param>
+        /// <returns>If there matches <c>true</c>, otherwise <c>false</c>.</returns>
+        protected bool ProcessKey(string key, IInputElement? element)
+        {
+            key = NormalizeKey(key);
+            var targets = SortByHierarchy(GetTargetsForSender(element, key));
+            var result = ProcessKey(key, targets);
+            return result != ProcessKeyResult.NoMatch;
+        }
+
         private static string NormalizeKey(string key) => key.ToUpperInvariant();
 
-        internal static ProcessKeyResult ProcessKey(List<IInputElement> targets, string key)
+        private static ProcessKeyResult ProcessKey(string key, List<IInputElement> targets)
         {
             if (!targets.Any())
                 return ProcessKeyResult.NoMatch;
@@ -420,6 +434,7 @@ namespace Avalonia.Input
 
         private List<IInputElement> CopyAndPurgeDead(string key)
         {
+            lock (_registrations)
             {
                 var registrationsToRemove = _registrations
                     .Where(m => m.GetInputElement() == null)

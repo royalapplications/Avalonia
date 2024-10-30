@@ -336,6 +336,7 @@ namespace Avalonia.Controls.Platform
             Menu.KeyDown -= KeyDown;
             Menu.PointerPressed -= PointerPressed;
             Menu.PointerReleased -= PointerReleased;
+            Menu.RemoveHandler(AccessKeyHandler.AccessKeyEvent, AccessKeyPressed);
             Menu.RemoveHandler(MenuBase.OpenedEvent, MenuOpened);
             Menu.RemoveHandler(MenuItem.PointerEnteredItemEvent, PointerEntered);
             Menu.RemoveHandler(MenuItem.PointerExitedItemEvent, PointerExited);
